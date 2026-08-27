@@ -98,3 +98,24 @@ list views and is unreachable from the internet. Candidate break/fix scenario.
 
 **Cost:** $0. VPCs, subnets, IGWs, route tables, security groups and NACLs
 are not billed.
+
+### Subnets — 2026-08-26
+
+| Name          | ID                       | CIDR        | AZ         | Usable IPs |
+|---------------|--------------------------|-------------|------------|------------|
+| lab-public-a  | subnet-0ed69202000fc6f62 | 10.0.1.0/24 | us-west-2a | 251        |
+| lab-private-b | subnet-071d8d711088b07bd | 10.0.2.0/24 | us-west-2b | 251        |
+
+**Notes**
+- Neither subnet is "public" or "private" at creation. Both inherit the main
+  route table (rtb-01966ee13b8e37c4a), which contains only the local route.
+  The distinction is created by routing in the next step, not by any subnet
+  setting.
+- Separate AZs: physically distinct facilities. No cost, and an AZ-scoped
+  failure affects only one subnet.
+- AWS reserves 5 addresses per subnet (network, VPC router, DNS, reserved,
+  broadcast), so a /24 yields 251 usable, not 256.
+- Default VPC (vpc-05bb676a42ec639af) holds four unnamed 172.31.x.x/20
+  subnets. Unused by this lab, left in place.
+
+**Cost:** $0.
