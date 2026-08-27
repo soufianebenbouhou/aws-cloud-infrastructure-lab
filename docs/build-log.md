@@ -119,3 +119,20 @@ are not billed.
   subnets. Unused by this lab, left in place.
 
 **Cost:** $0.
+
+### Internet Gateway — 2026-08-26
+- Name:  lab-igw
+- ID:    igw-07c7596cabc40476d
+- State: Attached to vpc-03c04264c547d4e52
+
+**Notes**
+- Creation and attachment are separate operations. A detached IGW is inert.
+- Attachment alone does not create connectivity. At this point the IGW is
+  attached and both subnets remain unreachable, because no route table
+  contains a route pointing to it. Routing is what makes a subnet public.
+- IGWs are free: horizontally scaled, redundant, no hourly charge, no data
+  processing fee. NAT Gateways are the opposite on all three counts
+  (~$0.045/hr plus per-GB processing), which is why the "VPC and more"
+  wizard was avoided.
+
+**Cost:** $0.
