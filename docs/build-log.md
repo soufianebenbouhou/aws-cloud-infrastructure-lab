@@ -162,3 +162,54 @@ are not billed.
   correctly configured. Candidate break/fix scenario.
 
 **Cost:** $0.
+
+### Security group — 2026-08-26
+- Name: lab-sg-web
+- ID:   sg-0d9c0f37446e20b71
+- VPC:  vpc-03c04264c547d4e52
+
+**Inbound (3)**
+
+| Rule ID                 | Type       | Protocol | Port | Source      | Purpose        |
+|-------------------------|------------|----------|------|-------------|----------------|
+| sgr-069620a57c0d6206f   | SSH        | TCP      | 22   | <my-ip>/32  | SSH from home  |
+| sgr-075f59cfabe598e2d   | HTTP       | TCP      | 80   | 0.0.0.0/0   | HTTP           |
+| sgr-07b9999c3d4cd5536   | Custom TCP | TCP      | 5000 | 0.0.0.0/0   | Flask API      |
+
+**Outbound (1)** — default: all traffic to 0.0.0.0/0. Required for package
+installs and S3 access.
+
+**Notes**
+- Security groups are STATEFUL. An inbound allow implies the return traffic is
+  permitted outbound; no matching outbound rule is needed. NACLs are stateless
+  and require rules in both directions. That difference is the source of most
+  hard-to-diagnose NACL failures and is a planned break/fix scenario.
+- SSH source is pinned to a single /32 via "My IP". Residential IPs rotate on
+  router reboot or network change. Symptom when it happens: SSH connection
+  timeout with no change on the instance. Fix: re-select "My IP" in the rule.
+  Planned break/fix scenario.
+- Port 5000 is open to 0.0.0.0/0 deliberately, so Postman can reach the API
+  from anywhere and so TLS/DNS scenarios can be exercised against it. A real
+  deployment would place this behind a load balancer or restrict the source.
+- Per-rule IDs (sgr-*) allow modifying a single rule via CLI rather than
+  replacing the whole ruleset. Useful for scripted break/fix.
+- Actual SSH source IP kept out of this repo.
+
+**Cost:** $0.
+
+---
+
+## Phase 1 complete — 2026-08-26
+
+| Resource       | ID                       |
+|----------------|--------------------------|
+| VPC            | vpc-03c04264c547d4e52    |
+| Public subnet  | subnet-0ed69202000fc6f62 |
+| Private subnet | subnet-071d8d711088b07bd |
+| Internet GW    | igw-07c7596cabc40476d    |
+| Public RT      | rtb-0d201d3ba7b5595df    |
+| Private RT     | rtb-09e671874c7873055    |
+| Security group | sg-0d9c0f37446e20b71     |
+
+Running cost: $0.00. Credits used: $0.00 of $100.
+Nothing in Phase 1 is billable. Phase 2 (EC2) is where charges begin.
