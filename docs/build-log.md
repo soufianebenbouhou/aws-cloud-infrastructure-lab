@@ -302,3 +302,58 @@ Operating habit: stop the instance at the end of each session.
   presents as a security group problem and is not one.
 - Postman export writes an empty string for base_url. Anyone importing the
   collection must set it to http://<instance-ip>:5000 before running.
+
+### systemd service — 2026-08-27
+- Unit:  /etc/systemd/system/lab-api.service
+- State: active (running), enabled
+- Main PID 2115 (gunicorn arbiter), 2 sync workers
+- Memory at idle: ~22 MB
+
+**Verified**
+- Survives SSH logout: exited the session, /health continued responding.
+- Survives reboot: confirmed. `sudo reboot` at 18:46 UTC; /health responded at
+  18:47:08 UTC with no manual intervention. Public IP unchanged — reboot does
+  not reassign it; only stop/start does.
+
+**Directive reasoning**
+- `Type=notify` — gunicorn signals readiness to systemd instead of systemd
+  assuming readiness at fork. Confirmed by Status: "Gunicorn arbiter booted".
+- `After=` / `Wants=network-online.target` — prevents a boot-time bind failure
+  on 0.0.0.0:5000 before the interface is up.
+- `User=ubuntu` — runs unprivileged. The systemd default is root; a web app
+  does not need it.
+- `Environment="PATH=/opt/lab-api/venv/bin"` — systemd starts with a minimal
+  environment. Without this the venv interpreter is not found.
+- `Restart=on-failure` + `RestartSec=5` — restarts on crash, not on clean
+  exit. The delay prevents a crash loop from saturating the CPU.
+- `WantedBy=multi-user.target` — the target `enable` symlinks into. This is
+  what makes the service start at boot. Confirmed by the symlink created at
+  /etc/systemd/system/multi-user.target.wants/lab-api.service.
+
+**Note for Phase 4**
+`Restart=on-failure` makes a naive "kill the process" failure uninteresting —
+systemd resurrects it in 5 seconds. Realistic service-failure scenarios are
+ones systemd cannot fix: bad config, missing dependency, port already bound.
+Those produce a visible restart loop in the journal, which is the artifact
+worth reading.
+
+---
+
+## Phase 2 complete — 2026-08-27
+
+| Resource   | ID / value                       |
+|------------|----------------------------------|
+| Key pair   | lab-key                          |
+| Instance   | i-0a5d4684f2c4f3008 (lab-web-01) |
+| Public IP  | 44.252.44.159 (ephemeral)        |
+| Private IP | 10.0.1.65                        |
+| Service    | lab-api.service (enabled)        |
+| API port   | 5000                             |
+
+Deferred deliberately: 114 pending apt updates (84 security). Left unpatched
+so the reboot test measured systemd behavior only. Patching is itself a
+planned scenario — a kernel update requires a reboot, which is a realistic
+production constraint.
+
+Disk at 34.8% of 6.61 GB after venv and packages. ~4.3 GB free — small enough
+that the disk-exhaustion scenario is easy to stage.
