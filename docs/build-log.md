@@ -212,4 +212,93 @@ installs and S3 access.
 | Security group | sg-0d9c0f37446e20b71     |
 
 Running cost: $0.00. Credits used: $0.00 of $100.
-Nothing in Phase 1 is billable. Phase 2 (EC2) is where charges begin.
+
+---
+
+## Phase 2 — Compute
+
+### Key pair — 2026-08-26
+- Name: lab-key (RSA, .pem)
+- Stored at ~/.ssh/lab-key.pem, chmod 400
+- Downloadable exactly once. No recovery path — losing it means terminating
+  and relaunching any instance that uses it.
+- Covered by .gitignore (*.pem). Never committed.
+- chmod 400 is required, not advisory. SSH refuses a private key readable by
+  anyone else and exits with UNPROTECTED PRIVATE KEY FILE. Browser downloads
+  land at 644.
+
+### EC2 instance — 2026-08-27
+- Name:        lab-web-01
+- Instance ID: i-0a5d4684f2c4f3008
+- Type:        t3.micro (2 vCPU, 908 MiB usable RAM), hvm, tenancy default
+- AMI:         Ubuntu Server 26.04 LTS (x86_64), kernel 7.0.0-1006-aws
+- Storage:     8 GiB gp3
+- Subnet:      subnet-0ed69202000fc6f62 (lab-public-a)
+- Security gp: sg-0d9c0f37446e20b71 (lab-sg-web)
+- Private IP:  10.0.1.65
+- Public IP:   44.252.44.159 (auto-assigned, not Elastic)
+- Public DNS:  ec2-44-252-44-159.us-west-2.compute.amazonaws.com
+- NIC:         ens5 (predictable naming — not eth0)
+- IMDSv2:      Required
+- IAM role:    none yet (Phase 3)
+
+**Notes**
+- Auto-assign public IP defaults to DISABLED on manually created subnets. It
+  was explicitly enabled. Without it the instance is unreachable regardless of
+  routing and security group configuration, and nothing in the console
+  indicates a problem.
+- Public DNS name resolves because DNS hostnames was enabled on the VPC. That
+  field is blank otherwise.
+- No Elastic IP. The public IP changes on every stop/start (not on reboot). An
+  EIP is free while attached to a RUNNING instance but billed (~$3.60/mo) when
+  unattached or attached to a stopped instance. Accepting the churn is cheaper
+  and more realistic. Planned break/fix: stale IP after restart, and SSH host
+  key mismatch when an IP is recycled.
+- IMDSv2 is required, so bare curl against 169.254.169.254 without a session
+  token fails. Older tutorials will not work as written.
+- SSH user is `ubuntu`. A wrong username returns "Permission denied
+  (publickey)", indistinguishable at first glance from a key problem.
+- No swap configured. With 908 MiB RAM and no swap, memory pressure kills
+  processes outright rather than degrading. Candidate OOM break/fix scenario.
+
+**Cost from this point forward**
+
+| Item     | Rate          | Per day | Per week |
+|----------|---------------|---------|----------|
+| t3.micro | ~$0.0104/hr   | ~$0.25  | ~$1.75   |
+| 8 GB gp3 | ~$0.08/GB-mo  | ~$0.02  | ~$0.15   |
+
+Stopped instances bill no compute — EBS only, ~$0.02/day.
+Operating habit: stop the instance at the end of each session.
+
+### Flask application — 2026-08-27
+- Path:   /opt/lab-api
+- Venv:   /opt/lab-api/venv
+- Server: gunicorn 26.2.0, bind 0.0.0.0:5000
+- Stack:  Flask 3.1.3, Werkzeug 3.1.8, Python 3.14
+
+**Endpoints**
+
+| Method | Path      | Response |
+|--------|-----------|----------|
+| GET    | /         | 200 — service name, hostname |
+| GET    | /health   | 200 — status and UTC timestamp |
+| POST   | /api/echo | 200 — echoes JSON body; 400 if body is not valid JSON |
+
+**Verification**
+- curl from local machine: all four cases pass, including the deliberate 400.
+- Postman collection `lab-api` with collection variable {{base_url}}.
+  Exported to docs/postman/lab-api.postman_collection.json.
+- Response {"host":"ip-10-0-1-65"} confirms traffic traversed
+  IGW → lab-rt-public → lab-public-a → sg-0d9c0f37446e20b71:5000 → gunicorn.
+
+**Notes**
+- PEP 668: Ubuntu 24.04+ marks system Python as externally managed, so pip
+  installs outside a venv fail with externally-managed-environment. The
+  --break-system-packages flag does what its name says; a venv is the correct
+  answer.
+- gunicorn binds 0.0.0.0, not 127.0.0.1. Binding loopback makes the app work
+  perfectly on the instance and invisible from outside — a failure that
+  presents as a security group problem and is not one.
+- Postman export writes an empty string for base_url. Anyone importing the
+  collection must set it to http://<instance-ip>:5000 before running.
