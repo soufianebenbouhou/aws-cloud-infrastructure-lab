@@ -451,3 +451,36 @@ because no identity-based policy allows the ec2:DescribeInstances action
 - AWS CLI installed: aws-cli/2.36.33.
 
 **Cost:** $0. IAM is free. S3 usage within free tier.
+
+### S3 integration in the application — 2026-08-27
+- boto3 installed into /opt/lab-api/venv (must be in the venv — the systemd
+  unit pins PATH to the venv, so a system-wide install is invisible to it)
+
+**New endpoints**
+
+| Method | Path           | Response |
+|--------|----------------|----------|
+| POST   | /api/store     | 201 — writes JSON to S3, returns the generated key; 400 on bad body; 502 on AWS error |
+| GET    | /api/records   | 200 — lists keys under records/; 502 on AWS error |
+
+Key structure: `records/YYYY-MM-DD/<uuid>.json`
+
+**Verification**
+POST /api/store {"event":"first-store","source":"laptop"}
+→ 201 {"bucket":"lab-api-storage-929214127133",
+"key":"records/2026-08-27/fd63e51e-...json","stored":true}
+
+GET /api/records
+→ 200 {"count":1,"keys":["records/2026-08-27/fd63e51e-...json"]}
+
+**Notes**
+- No credentials appear anywhere in the application code or on the host.
+  boto3 walks its credential chain — environment variables, then
+  ~/.aws/credentials, then IMDS. The first two are empty, so it resolves to
+  the instance role and receives temporary credentials that AWS rotates.
+- ClientError is caught and the AWS error code is returned in a 502 rather
+  than surfacing a stack trace. This makes the planned "detach the IAM role
+  while the app is running" scenario produce a diagnosable response
+  (502 with aws_error: AccessDenied) instead of a 500.
+- Bucket name and region are read from environment variables with defaults,
+  so they can be overridden without editing code.
