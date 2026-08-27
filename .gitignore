@@ -1,0 +1,4 @@
+docs/account-private.md
+*.pem
+.env
+*.log
