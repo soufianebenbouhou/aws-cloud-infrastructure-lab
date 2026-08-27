@@ -23,7 +23,7 @@ at a time against a known-good baseline.
 | 02 | [Request accepted, reply dropped](02-nacl-stateless-return-traffic.md) | Network ACL |
 | 03 | [New instance unreachable, identical config](03-subnet-inherits-main-route-table.md) | Routing |
 | 04 | [Writes succeed, listing fails](04-iam-resource-arn-mismatch.md) | IAM / S3 |
-| 05 | | |
+| 05 | [Role detached; app keeps working, then won't recover](05-iam-role-detached-credential-caching.md) | IAM / SDK |
 | 06 | | |
 | 07 | | |
 | 08 | | |
