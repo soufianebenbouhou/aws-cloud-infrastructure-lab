@@ -357,3 +357,97 @@ production constraint.
 
 Disk at 34.8% of 6.61 GB after venv and packages. ~4.3 GB free — small enough
 that the disk-exhaustion scenario is easy to stage.
+
+---
+
+## Phase 3 — Storage and identity
+
+### S3 bucket — 2026-08-27
+- Name:   lab-api-storage-929214127133
+- Region: us-west-2
+- Block all public access: ON (all four settings)
+- Versioning: Enabled
+- Default encryption: SSE-S3
+- Bucket policy: none — access is granted by identity policy on the role
+
+**Notes**
+- Bucket names are globally unique across all AWS accounts, not per-account.
+  Account ID appended to guarantee uniqueness.
+- No bucket policy is deliberate. Permissions live on the principal
+  (identity-based) rather than the resource. Both work; identity-based is
+  easier to scope for a single consumer.
+- Free tier: 5 GB storage, 20k GET, 2k PUT per month. This lab's usage is
+  effectively $0 and stays free after credits expire.
+
+### IAM policy lab-s3-access — 2026-08-27
+Two statements, two distinct ARNs:
+- `s3:ListBucket` on `arn:aws:s3:::lab-api-storage-929214127133`   (no /*)
+- `s3:GetObject`, `s3:PutObject`, `s3:DeleteObject`
+  on `arn:aws:s3:::lab-api-storage-929214127133/*`
+
+**Why the split matters**
+ListBucket acts on the bucket; object actions act on objects inside it. Using
+only the /* ARN makes `aws s3 ls s3://bucket` fail with AccessDenied while
+`aws s3 cp` works. Using only the bare ARN inverts it. Both present as random
+IAM flakiness if the distinction isn't known. Planned break/fix scenario.
+
+No wildcards on Action. No `*` on Resource. The role can touch one bucket.
+
+### IAM role lab-ec2-s3-role — 2026-08-27
+- Trusted entity: AWS service — EC2
+- Trust policy principal: ec2.amazonaws.com, action sts:AssumeRole
+- Permissions policy: lab-s3-access
+- Attached to i-0a5d4684f2c4f3008 with no reboot required
+
+**Trust policy vs permissions policy**
+- Trust policy answers WHO may assume the role. No Resource field — the
+  resource is implicitly the role itself.
+- Permissions policy answers WHAT the role may do once assumed.
+Both must be correct. A role with perfect permissions and a wrong trust policy
+cannot be assumed at all, and the resulting error points elsewhere.
+
+### Verification — 2026-08-27
+
+IMDSv2 (session token required):
+TOKEN=$(curl -sX PUT "http://169.254.169.254/latest/api/token"
+-H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+curl -s -H "X-aws-ec2-metadata-token: $TOKEN"
+http://169.254.169.254/latest/meta-data/iam/security-credentials/
+→ lab-ec2-s3-role
+
+Identity:
+aws sts get-caller-identity
+→ Arn: arn:aws:sts::929214127133:assumed-role/lab-ec2-s3-role/i-0a5d4684f2c4f3008
+→ UserId: AROA5QWL2LQO2DD4LCIRW:i-0a5d4684f2c4f3008
+- `sts::` not `iam::` — temporary credentials, not a permanent identity
+- `assumed-role` not `user`
+- Session name is the instance ID, so CloudTrail attributes every call to this
+  specific instance
+- AROA prefixes a role; AIDA prefixes a user
+
+Allowed:
+aws s3 cp /tmp/test.json s3://lab-api-storage-929214127133/test.json → upload succeeded
+aws s3 ls s3://lab-api-storage-929214127133 → 20 B test.json
+
+Denied (both expected):
+aws s3 ls
+→ AccessDenied: ... not authorized to perform: s3:ListAllMyBuckets
+because no identity-based policy allows the s3:ListAllMyBuckets action
+
+aws ec2 describe-instances --region us-west-2
+→ UnauthorizedOperation: ... not authorized to perform: ec2:DescribeInstances
+because no identity-based policy allows the ec2:DescribeInstances action
+
+**Notes**
+- Different services return different error codes for the same authorization
+  failure: S3 uses AccessDenied, EC2 uses UnauthorizedOperation. Knowing this
+  prevents chasing the wrong cause.
+- "because no identity-based policy allows..." means no Allow was found, which
+  is distinct from an explicit Deny. Different wording, different fix.
+  Distinguishing the two is the first fork in any IAM diagnosis.
+- No credentials on disk at any point. No ~/.aws/credentials, no environment
+  variables. Credentials are delivered by IMDS and rotated automatically
+  before expiry.
+- AWS CLI installed: aws-cli/2.36.33.
+
+**Cost:** $0. IAM is free. S3 usage within free tier.
