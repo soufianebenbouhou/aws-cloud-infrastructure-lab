@@ -20,7 +20,7 @@ at a time against a known-good baseline.
 |---|----------|-------|
 | 00 | [Cannot register second MFA device](../build-log.md) | IAM |
 | 01 | [API unreachable, SSH unaffected](01-security-group-source-mismatch.md) | Security group |
-| 02 | | |
+| 02 | [Request accepted, reply dropped](02-nacl-stateless-return-traffic.md) | Network ACL |
 | 03 | | |
 | 04 | | |
 | 05 | | |
