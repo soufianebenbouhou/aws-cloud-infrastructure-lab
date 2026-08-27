@@ -484,3 +484,57 @@ GET /api/records
   (502 with aws_error: AccessDenied) instead of a 500.
 - Bucket name and region are read from environment variables with defaults,
   so they can be overridden without editing code.
+
+### CloudWatch agent — 2026-08-27
+- Package: amazon-cloudwatch-agent.deb (CWAgent/1.300071.0b1720)
+- Config:  /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+- Service: amazon-cloudwatch-agent, active (running), enabled
+- run_as_user: root — required to read /var/log/auth.log (640 syslog:adm)
+
+**Log groups**
+
+| Group        | Stream                             | Source           | Retention |
+|--------------|------------------------------------|------------------|-----------|
+| /lab/system  | i-0a5d4684f2c4f3008/syslog         | /var/log/syslog  | 7 days    |
+| /lab/auth    | i-0a5d4684f2c4f3008/auth           | /var/log/auth.log| 7 days    |
+
+**Custom metrics** — namespace LabMetrics, 60s interval
+- mem_used_percent
+- disk used_percent on /
+
+**IAM change**
+CloudWatchAgentServerPolicy (AWS-managed) attached to lab-ec2-s3-role.
+Applied to a running instance with no restart — IMDS picks up the change in
+seconds. Not possible with credentials baked into the host.
+
+Tradeoff recorded: the managed policy is broader than needed. It grants
+logs:PutLogEvents, logs:CreateLogGroup, logs:CreateLogStream,
+cloudwatch:PutMetricData and some SSM parameter reads. A production setup
+would use a scoped custom policy. Accepted here for speed.
+
+**Notes**
+- retention_in_days: 7 is set explicitly. Log groups default to Never Expire.
+  Forgotten log groups accumulating indefinitely are a real cost leak.
+- EC2 does not report memory or disk usage to CloudWatch natively — the
+  hypervisor cannot see inside the guest. Only the agent can. Without it the
+  planned OOM and disk-exhaustion scenarios would have no metric trail.
+- The agent's own log at
+  /opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log
+  is the first place to look for delivery failures. AccessDenied there with
+  continuous backoff indicates an IAM problem; two brief retries at startup
+  are normal SDK connection backoff.
+
+---
+
+## Phase 3 complete — 2026-08-27
+
+| Resource        | ID / name                        |
+|-----------------|----------------------------------|
+| S3 bucket       | lab-api-storage-929214127133     |
+| IAM policy      | lab-s3-access                    |
+| IAM role        | lab-ec2-s3-role                  |
+| Managed policy  | CloudWatchAgentServerPolicy      |
+| Log groups      | /lab/system, /lab/auth (7d)      |
+| Metric namespace| LabMetrics                       |
+
+Credits used: $0.00 of $100 at time of writing.
