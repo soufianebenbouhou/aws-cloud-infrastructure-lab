@@ -136,3 +136,29 @@ are not billed.
   wizard was avoided.
 
 **Cost:** $0.
+
+### Route tables — 2026-08-26
+
+| Name           | ID                    | Associated subnet                     | Routes |
+|----------------|-----------------------|---------------------------------------|--------|
+| lab-rt-public  | rtb-0d201d3ba7b5595df | subnet-0ed69202000fc6f62 (public-a)   | 0.0.0.0/0 → igw-07c7596cabc40476d; 10.0.0.0/16 → local |
+| lab-rt-private | rtb-09e671874c7873055 | subnet-071d8d711088b07bd (private-b)  | 10.0.0.0/16 → local |
+| (main)         | rtb-01966ee13b8e37c4a | none (no explicit associations)       | 10.0.0.0/16 → local |
+
+**Notes**
+- This step, not the IGW, is what makes a subnet public. The IGW was attached
+  in the previous step and nothing was reachable until 0.0.0.0/0 pointed at it.
+- Longest-prefix-match: traffic to 10.0.x.x matches the /16 local route and
+  stays in the VPC; everything else falls through to the /0 and exits via the
+  gateway. The two routes do not conflict.
+- The local route is created by AWS (Route Origin: CreateRouteTable) and
+  cannot be deleted. The default route shows CreateRoute — useful for
+  distinguishing operator changes from AWS defaults when auditing.
+- lab-private-b was explicitly associated with lab-rt-private rather than left
+  to inherit the main table. Implicit association is invisible in most views
+  and changes behavior for every dependent subnet if the main table is edited.
+- Main route table now has zero explicit associations. Any new subnet created
+  without an association will inherit it and be unreachable while appearing
+  correctly configured. Candidate break/fix scenario.
+
+**Cost:** $0.
