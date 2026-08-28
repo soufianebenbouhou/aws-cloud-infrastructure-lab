@@ -144,7 +144,10 @@ corrupted mid-write. If `apt update` continues to fail:
 sudo rm -rf /var/lib/apt/lists/*
 sudo apt update
 ```
-
+In this case apt recovered without intervention: `apt update` succeeded on the
+next run once space was available. The corruption was to a partially-written
+temporary file rather than to the persistent package database. Worth verifying
+rather than assuming either way.
 ---
 
 ## Prevention
