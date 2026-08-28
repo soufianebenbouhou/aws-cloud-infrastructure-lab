@@ -538,3 +538,61 @@ would use a scoped custom policy. Accepted here for speed.
 | Metric namespace| LabMetrics                       |
 
 Credits used: $0.00 of $100 at time of writing.
+
+---
+
+## Phase 4 — Break/fix incidents (2026-08-27 / 2026-08-28)
+
+Ten deliberate failures introduced into the working environment, diagnosed from
+symptoms, and documented in `docs/runbooks/`. Each was applied against a
+known-good baseline and reverted before the next.
+
+| # | Incident | Layer |
+|---|----------|-------|
+| 01 | API unreachable, SSH unaffected | Security group |
+| 02 | Request accepted, reply dropped | Network ACL |
+| 03 | New instance unreachable, identical config | Routing |
+| 04 | Writes succeed, listing fails | IAM / S3 |
+| 05 | Role detached; app keeps working, then won't recover | IAM / SDK |
+| 06 | Healthy locally, refused from the network | Application / bind address |
+| 07 | Service in a restart loop | Application / systemd |
+| 08 | Filesystem at 100%, application unaffected | Host / filesystem |
+| 09 | Process killed by the kernel, no application log | Host / kernel |
+| 10 | SSH refuses to connect, host identification changed | SSH / trust |
+
+### Findings worth carrying forward
+
+- **Timeout vs. Connection refused splits the problem space before any console
+  is opened.** Incidents 01, 02 and 03 produced timeouts (packets dropped by a
+  filter or unrouted); 06 produced an immediate refusal (packet delivered, no
+  listener). One word in the client error eliminates half the stack.
+- **Three different root causes produced an identical client symptom.** 01, 02
+  and 03 are indistinguishable from outside. Diagnosis depended entirely on
+  server-side and VPC-side evidence.
+- **VPC Flow Logs were the only source that could diagnose Incident 02.** An
+  ACCEPT on the inbound packet paired with a REJECT on its reply is the
+  signature of a stateless filter, and no host-side log records a packet the
+  VPC dropped.
+- **Detaching an IAM role does not stop a running application, and reattaching
+  it does not fix one.** boto3 caches credentials in memory; a client
+  constructed without credentials stays broken. Both directions required a
+  restart, and the console showed the role as correct throughout.
+- **Two incidents produced no application-level signal at all.** The OOM kill
+  (09) left `-- No entries --` in the service journal because SIGKILL cannot be
+  caught; the security group change (01) left nothing because the requests never
+  arrived. Both required looking outside the application.
+- **A full disk did not take the service down.** At 0 bytes available the API
+  still returned 200 and 201. What broke was operational capability — `apt`
+  segfaulted mid-write.
+- **Stale log entries are a real trap.** During Incident 08 the CloudWatch agent
+  log showed connection errors that were two hours old and belonged to Incident
+  02. `tail` shows the last lines, not the recent ones.
+- **Restart=on-failure cannot fix a startup failure.** It restarts a crash loop
+  indefinitely until systemd's start rate limit puts the unit into a hard failed
+  state, at which point `systemctl restart` alone may not recover it.
+
+### Cost
+
+All ten incidents ran on the existing t3.micro plus one short-lived second
+instance for Incident 03. VPC Flow Logs were enabled on lab-public-a with 7-day
+retention. Total incremental cost: under $0.10.
