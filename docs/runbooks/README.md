@@ -25,7 +25,7 @@ at a time against a known-good baseline.
 | 04 | [Writes succeed, listing fails](04-iam-resource-arn-mismatch.md) | IAM / S3 |
 | 05 | [Role detached; app keeps working, then won't recover](05-iam-role-detached-credential-caching.md) | IAM / SDK |
 | 06 | [Healthy locally, refused from the network](06-service-bound-to-loopback.md) | Application / bind address |
-| 07 | | |
+| 07 | [Service in a restart loop](07-service-restart-loop-import-error.md) | Application / systemd |
 | 08 | | |
 | 09 | | |
 | 10 | | |
