@@ -26,6 +26,6 @@ at a time against a known-good baseline.
 | 05 | [Role detached; app keeps working, then won't recover](05-iam-role-detached-credential-caching.md) | IAM / SDK |
 | 06 | [Healthy locally, refused from the network](06-service-bound-to-loopback.md) | Application / bind address |
 | 07 | [Service in a restart loop](07-service-restart-loop-import-error.md) | Application / systemd |
-| 08 | | |
+| 08 | [Filesystem at 100%, application unaffected](08-disk-exhaustion.md) | Host / filesystem |
 | 09 | | |
 | 10 | | |
