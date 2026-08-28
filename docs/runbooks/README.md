@@ -27,5 +27,5 @@ at a time against a known-good baseline.
 | 06 | [Healthy locally, refused from the network](06-service-bound-to-loopback.md) | Application / bind address |
 | 07 | [Service in a restart loop](07-service-restart-loop-import-error.md) | Application / systemd |
 | 08 | [Filesystem at 100%, application unaffected](08-disk-exhaustion.md) | Host / filesystem |
-| 09 | | |
+| 09 | [Process killed by the kernel, no application log](09-oom-kill.md) | Host / kernel |
 | 10 | | |
