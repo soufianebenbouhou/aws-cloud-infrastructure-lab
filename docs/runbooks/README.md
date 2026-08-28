@@ -28,4 +28,4 @@ at a time against a known-good baseline.
 | 07 | [Service in a restart loop](07-service-restart-loop-import-error.md) | Application / systemd |
 | 08 | [Filesystem at 100%, application unaffected](08-disk-exhaustion.md) | Host / filesystem |
 | 09 | [Process killed by the kernel, no application log](09-oom-kill.md) | Host / kernel |
-| 10 | | |
+| 10 | [SSH refuses to connect, host identification changed](10-ssh-host-key-mismatch.md) | SSH / trust |
